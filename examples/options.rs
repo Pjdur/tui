@@ -1,4 +1,4 @@
-use tui::*;
+use uxterm::*;
 
 fn main() -> std::io::Result<()> {
     let mut ui = UI::new();
