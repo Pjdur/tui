@@ -2,7 +2,7 @@ use crate::widget::{button::Button, checkbox::Checkbox, label::Label, slider::Sl
 
 use std::io::{Write, stdout};
 use std::process::Command;
-
+use std::time::{Instant, Duration};
 use crossterm::{
     cursor,
     cursor::MoveTo,
@@ -169,6 +169,9 @@ impl UI {
         let mut stdout = stdout();
         let mut needs_redraw = true;
 
+        let mut last_key_time = Instant::now();
+        let debounce_duration = Duration::from_millis(100);
+
         loop {
             if needs_redraw {
                 clear_screen();
@@ -181,8 +184,14 @@ impl UI {
                 needs_redraw = false;
             }
 
-            match event::read()? {
-                CEvent::Key(key_event) => match key_event.code {
+            use crossterm::event::{KeyEventKind};
+
+            if let CEvent::Key(key_event) = event::read()? {
+                if key_event.kind != KeyEventKind::Press {
+                    continue; // ignore repeats and releases
+                }
+
+                match key_event.code {
                     KeyCode::Esc => break,
                     KeyCode::Tab => {
                         self.handle_event(&Event::Key('\t'));
@@ -201,9 +210,9 @@ impl UI {
                         needs_redraw = true;
                     }
                     _ => {}
-                },
-                _ => {}
+                }
             }
+
         }
 
         disable_raw_mode()?;
