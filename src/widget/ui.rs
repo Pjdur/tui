@@ -2,7 +2,6 @@ use crate::widget::{button::Button, checkbox::Checkbox, label::Label, slider::Sl
 
 use std::io::{Write, stdout};
 use std::process::Command;
-use std::time::{Instant, Duration};
 use crossterm::{
     cursor,
     cursor::MoveTo,
