@@ -169,9 +169,6 @@ impl UI {
         let mut stdout = stdout();
         let mut needs_redraw = true;
 
-        let mut last_key_time = Instant::now();
-        let debounce_duration = Duration::from_millis(100);
-
         loop {
             if needs_redraw {
                 clear_screen();
