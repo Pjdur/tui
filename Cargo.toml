@@ -1,6 +1,6 @@
 [package]
 name = "uxterm"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 authors = ["pjdur"]
 description = "A user experience-focused terminal UI library built with Crossterm."

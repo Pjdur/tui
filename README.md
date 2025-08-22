@@ -21,7 +21,7 @@ Add `uxterm` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-uxterm = "0.1.0"
+uxterm = "1.0.0"
 ```
 
 Then build your UI:
@@ -30,19 +30,21 @@ Then build your UI:
 use uxterm::*;
 
 fn main() -> std::io::Result<()> {
-    let mut ui = UI::new();
+    let mut view = View::new("Ice Cream Selector");
 
-    ui.add(Label::new("Choose your ice cream flavours:"));
-    ui.add(Checkbox::new("Vanilla"));
-    ui.add(Checkbox::new("Chocolate"));
-    ui.add(Checkbox::new("Strawberry"));
-    ui.add(Label::new("Press TAB to switch, SPACE to toggle, ESC to finish"));
+    view.add(Label::new("Choose your ice cream flavours:"));
+    view.add(Checkbox::new("Vanilla"));
+    view.add(Checkbox::new("Chocolate"));
+    view.add(Checkbox::new("Strawberry"));
+    view.add(Checkbox::new("Mint"));
+    view.add(Checkbox::new("Cookie Dough"));
+    view.add(Label::new("Press TAB to switch, SPACE to toggle, ESC to finish"));
 
-    let result = ui.run()?;
+    let result = run(view)?;
 
     println!("\nYour ice cream will include:");
-    for item in result {
-        println!("- {}", item);
+    for ingredient in result {
+        println!("- {}", ingredient);
     }
 
     Ok(())
