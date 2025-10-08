@@ -9,7 +9,9 @@ fn main() -> std::io::Result<()> {
     view.add(Checkbox::new("Strawberry"));
     view.add(Checkbox::new("Mint"));
     view.add(Checkbox::new("Cookie Dough"));
-    view.add(Label::new("Press TAB to switch, SPACE to toggle, ESC to finish"));
+    view.add(Label::new(
+        "Press TAB to switch, SPACE to toggle, ESC to finish",
+    ));
 
     let result = run(view)?;
 

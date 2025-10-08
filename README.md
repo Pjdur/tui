@@ -21,7 +21,7 @@ Add `uxterm` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-uxterm = "1.0.0"
+uxterm = "1.1.0"
 ```
 
 Then build your UI:
@@ -71,6 +71,7 @@ fn main() -> std::io::Result<()> {
 | `Checkbox`| Toggleable options                   |
 | `Slider`  | Adjustable numeric input             |
 | `Button`  | Clickable action (customizable)      |
+| `Input`   | Text input field                     |
 
 ---
 

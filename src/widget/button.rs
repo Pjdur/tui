@@ -11,6 +11,11 @@ impl Button {
 
     pub fn render(&self) -> String {
         let width = self.label.len() + 2;
-        format!("╭{}╮\n │ {} │ \n ╰{}╯", "─".repeat(width), self.label, "─".repeat(width))
+        format!(
+            "╭{}╮\n │ {} │ \n ╰{}╯",
+            "─".repeat(width),
+            self.label,
+            "─".repeat(width)
+        )
     }
 }

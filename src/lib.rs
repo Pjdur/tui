@@ -1,11 +1,12 @@
 mod widget;
 
 pub use widget::{
-    view::{View, WidgetType, WidgetValue, Event},
     button::Button,
     checkbox::Checkbox,
+    input::Input,
     label::Label,
     slider::Slider,
+    view::{Event, View, WidgetType, WidgetValue},
 };
 
 /// Runs the provided view and returns selected values (e.g., checked checkboxes).

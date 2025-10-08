@@ -9,17 +9,24 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode},
 };
 
-use crate::widget::{button::Button, checkbox::Checkbox, label::Label, slider::Slider};
+use crate::widget::{
+    button::Button, checkbox::Checkbox, input::Input, label::Label, slider::Slider,
+};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Event {
     Key(char),
+    ArrowLeft,
+    ArrowRight,
+    ArrowUp,
+    ArrowDown,
 }
 
 #[derive(Debug)]
 pub enum WidgetValue {
     Bool(bool),
     Int(i32),
+    Text(String),
 }
 
 pub enum WidgetType {
@@ -28,6 +35,7 @@ pub enum WidgetType {
     Slider(Slider),
     Label(Label),
     View(View),
+    Input(Input),
 }
 
 impl From<Button> for WidgetType {
@@ -50,6 +58,11 @@ impl From<Label> for WidgetType {
         Self::Label(value)
     }
 }
+impl From<Input> for WidgetType {
+    fn from(value: Input) -> Self {
+        Self::Input(value)
+    }
+}
 impl From<View> for WidgetType {
     fn from(value: View) -> Self {
         Self::View(value)
@@ -63,16 +76,30 @@ impl WidgetType {
         indent: usize,
         _focus_index: usize,
         _focusable_index: &mut usize,
+        current_y: &mut u16,
     ) -> String {
         let prefix = if focused { ">" } else { " " };
         let pad = " ".repeat(indent);
 
         match self {
-            WidgetType::Button(b) => format!("{pad}{}{label}", prefix, label = b.render()),
-            WidgetType::Checkbox(c) => format!("{pad}{}{label}", prefix, label = c.render()),
-            WidgetType::Slider(s) => format!("{pad}{}{label}", prefix, label = s.render()),
-            WidgetType::Label(l) => format!("{pad} {}", l.render()),
-            WidgetType::View(v) => v.render(indent + 2, _focus_index, _focusable_index),
+            WidgetType::Button(b) => {
+                *current_y += 1;
+                format!("{pad}{}{label}", prefix, label = b.render())
+            }
+            WidgetType::Checkbox(c) => {
+                *current_y += 1;
+                format!("{pad}{}{label}", prefix, label = c.render())
+            }
+            WidgetType::Slider(s) => {
+                *current_y += 1;
+                format!("{pad}{}{label}", prefix, label = s.render())
+            }
+            WidgetType::Label(l) => {
+                *current_y += 1;
+                format!("{pad} {}", l.render())
+            }
+            WidgetType::View(v) => v.render(indent + 2, _focus_index, _focusable_index, current_y),
+            WidgetType::Input(i) => format!("{pad}{}{label}", prefix, label = i.render(focused)),
         }
     }
 
@@ -96,6 +123,20 @@ impl WidgetType {
                 }
                 _ => {}
             },
+            WidgetType::Input(i) => {
+                match event {
+                    Event::Key(c) => match c {
+                        '\x08' => i.handle_backspace(), // Backspace
+                        '\x1b' => {}                    // Escape (optional)
+                        '\n' => {}                      // Enter (optional)
+                        _ => i.handle_char(*c),         // All other characters
+                    },
+                    Event::ArrowLeft => i.move_cursor_left(),
+                    Event::ArrowRight => i.move_cursor_right(),
+                    _ => {}
+                }
+            }
+
             WidgetType::View(v) => {
                 v.handle_event(event, focus_index);
             }
@@ -108,7 +149,10 @@ impl WidgetType {
             WidgetType::View(v) => count_focusables(v) > 0,
             _ => matches!(
                 self,
-                WidgetType::Button(_) | WidgetType::Checkbox(_) | WidgetType::Slider(_)
+                WidgetType::Button(_)
+                    | WidgetType::Checkbox(_)
+                    | WidgetType::Slider(_)
+                    | WidgetType::Input(_)
             ),
         }
     }
@@ -119,6 +163,10 @@ impl WidgetType {
             WidgetType::Slider(s) => {
                 Some((format!("Slider({})", s.label), WidgetValue::Int(s.value)))
             }
+            WidgetType::Input(i) => Some((
+                i.label.clone(),
+                WidgetValue::Text(i.get_value().to_string()),
+            )),
             WidgetType::View(_) => None,
             _ => None,
         }
@@ -170,19 +218,38 @@ impl View {
         indent: usize,
         global_focus_index: usize,
         focusable_index: &mut usize,
+        current_y: &mut u16,
     ) -> String {
         let mut output = vec![format!("{}=== {} ===", " ".repeat(indent), self.label)];
+        *current_y += 1; // header line
 
         for widget in &self.widgets {
             match widget {
                 WidgetType::View(v) => {
-                    output.push(v.render(indent + 2, global_focus_index, focusable_index));
+                    output.push(v.render(
+                        indent + 2,
+                        global_focus_index,
+                        focusable_index,
+                        current_y,
+                    ));
                 }
                 _ => {
                     let is_focusable = widget.is_focusable();
                     let focused = is_focusable && *focusable_index == global_focus_index;
 
-                    output.push(widget.render(focused, indent, global_focus_index, &mut 0)); // dummy index
+                    output.push(widget.render(
+                        focused,
+                        indent,
+                        global_focus_index,
+                        &mut 0, // dummy focusable index
+                        current_y,
+                    ));
+
+                    // Advance vertical position: Input takes 3 lines, others take 1
+                    *current_y += match widget {
+                        WidgetType::Input(_) => 3,
+                        _ => 1,
+                    };
 
                     if is_focusable {
                         *focusable_index += 1;
@@ -216,17 +283,22 @@ impl View {
         let mut global_focus_index = 0;
 
         loop {
+            let mut flat_index = 0;
+            let mut current_y = 0;
+
             if needs_redraw {
                 clear_screen();
                 execute!(stdout, MoveTo(0, 0))?;
-                let mut flat_index = 0;
+
                 for line in self
-                    .render(0, global_focus_index, &mut flat_index)
+                    .render(0, global_focus_index, &mut flat_index, &mut current_y)
                     .split('\n')
                 {
                     queue!(stdout, Print(line), MoveToNextLine(1))?;
                 }
+
                 stdout.flush()?;
+
                 needs_redraw = false;
             }
 
@@ -250,8 +322,20 @@ impl View {
                         global_focus_index = (global_focus_index + total - 1) % total;
                         needs_redraw = true;
                     }
-                    KeyCode::Char(c @ (' ' | '+' | '-')) => {
-                        self.handle_event(&Event::Key(c), global_focus_index);
+                    KeyCode::Char(c) => {
+                        self.handle_event(&crate::Event::Key(c), global_focus_index);
+                        needs_redraw = true;
+                    }
+                    KeyCode::Backspace => {
+                        self.handle_event(&crate::Event::Key('\x08'), global_focus_index);
+                        needs_redraw = true;
+                    }
+                    KeyCode::Left => {
+                        self.handle_event(&crate::Event::ArrowLeft, global_focus_index);
+                        needs_redraw = true;
+                    }
+                    KeyCode::Right => {
+                        self.handle_event(&crate::Event::ArrowRight, global_focus_index);
                         needs_redraw = true;
                     }
                     _ => {}
@@ -265,7 +349,8 @@ impl View {
             .get_values()
             .into_iter()
             .filter_map(|(label, value)| match value {
-                WidgetValue::Bool(true) => Some(label),
+                crate::WidgetValue::Bool(true) => Some(label),
+                crate::WidgetValue::Text(text) => Some(format!("{}: {}", label, text)),
                 _ => None,
             })
             .collect();
